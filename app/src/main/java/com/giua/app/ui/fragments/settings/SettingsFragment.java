@@ -199,8 +199,8 @@ public class SettingsFragment extends PreferenceFragmentCompat {
 
     private void setupNotificationManager() {
         MultiSelectListPreference multiSelectListPreference = Objects.requireNonNull(findPreference("notification_manager"));
-        multiSelectListPreference.setEntries(new CharSequence[]{"Circolari", "Avvisi", "Aggiornamenti", "Voti", "Compiti", "Verifiche"});
-        multiSelectListPreference.setEntryValues(new CharSequence[]{"0", "1", "2", "3", "4", "5"});
+        multiSelectListPreference.setEntries(new CharSequence[]{"Circolari", "Avvisi", "Aggiornamenti", "Compiti", "Verifiche"});
+        multiSelectListPreference.setEntryValues(new CharSequence[]{"0", "1", "2", "4", "5"});
         multiSelectListPreference.setOnPreferenceChangeListener(this::setupNotificationManagerChangeListener);
         multiSelectListPreference.setOnPreferenceClickListener(this::setupNotificationManagerOnClick);
     }

@@ -78,7 +78,8 @@ public class AppNotifications extends BroadcastReceiver {
 
         if (activeUsername.equals("") || !canSendNotifications) return;
 
-        canSendNotificationsVotes = SettingsData.getSettingBoolean(context, SettingKey.VOTES_NOTIFICATION);
+        canSendNotificationsVotes = false; //Disabilitato in quetsa versione di Giua App
+        //canSendNotificationsVotes = SettingsData.getSettingBoolean(context, SettingKey.VOTES_NOTIFICATION);
         canSendNotificationsHomeworks = SettingsData.getSettingBoolean(context, SettingKey.HOMEWORKS_NOTIFICATION);
         canSendNotificationsTests = SettingsData.getSettingBoolean(context, SettingKey.TESTS_NOTIFICATION);
         canSendNotificationsAlerts = SettingsData.getSettingBoolean(context, SettingKey.ALERTS_NOTIFICATION);

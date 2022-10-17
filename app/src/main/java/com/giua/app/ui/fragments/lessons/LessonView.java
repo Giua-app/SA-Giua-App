@@ -35,7 +35,7 @@ import org.jetbrains.annotations.NotNull;
 
 public class LessonView extends ConstraintLayout {
 
-    Lesson lesson;
+    public final Lesson lesson;
 
     public LessonView(@NonNull @NotNull Context context, @Nullable @org.jetbrains.annotations.Nullable AttributeSet attrs, Lesson lesson) {
         super(context, attrs);

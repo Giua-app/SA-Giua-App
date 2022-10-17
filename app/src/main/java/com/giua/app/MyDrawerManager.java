@@ -204,7 +204,6 @@ public class MyDrawerManager {
 
                 //CATEGORIA SITUAZIONE
                 createCategoryItem(4, "Situazione").withSubItems(
-                        createItem(5, R.id.nav_votes, true, "Voti"),
                         createItem(6, R.id.nav_absences, true, "Assenze"),
                         createNotImplementedItem(7, true, true, "Note", UrlPaths.DISCIPLINARY_NOTICES_PAGE),
                         createNotImplementedItem(8, isParent, true, "Osservazioni", UrlPaths.OBSERVATIONS_PAGE), //SOLO GENITORE,

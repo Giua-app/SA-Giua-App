@@ -20,14 +20,14 @@
 package com.giua.app.ui.fragments.home;
 
 import android.app.Activity;
-import android.content.res.Resources;
 import android.graphics.Color;
-import android.media.Image;
 import android.os.Bundle;
+import android.text.Html;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.AnimationUtils;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -35,16 +35,10 @@ import android.widget.TextView;
 import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.core.content.res.ResourcesCompat;
 import androidx.fragment.app.Fragment;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
-import com.github.mikephil.charting.charts.LineChart;
-import com.github.mikephil.charting.components.Description;
-import com.github.mikephil.charting.components.YAxis;
 import com.github.mikephil.charting.data.Entry;
-import com.github.mikephil.charting.data.LineData;
-import com.github.mikephil.charting.data.LineDataSet;
 import com.giua.app.AppUpdateManager;
 import com.giua.app.AppUtils;
 import com.giua.app.GlobalVariables;
@@ -55,14 +49,17 @@ import com.giua.app.R;
 import com.giua.app.SettingKey;
 import com.giua.app.SettingsData;
 import com.giua.app.ui.activities.DrawerActivity;
+import com.giua.app.ui.fragments.lessons.LessonView;
+import com.giua.app.ui.views.ObscureLayoutView;
+import com.giua.objects.Lesson;
 import com.giua.objects.Vote;
+import com.giua.pages.LessonsPage;
 import com.giua.pages.VotesPage;
 import com.giua.webscraper.GiuaScraperExceptions;
 import com.google.android.material.snackbar.Snackbar;
 
-import java.text.DecimalFormat;
-import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -73,24 +70,30 @@ public class HomeFragment extends Fragment implements IGiuaAppFragment {
 
     LinearLayout contentLayout;
     List<HomeChartView> allCharts;
-    Activity activity;
     TextView tvHomeworks;
     TextView tvTests;
-    TextView txUserInfo;
+    final @ColorInt
+    int[] QUARTERLY_COLORS = new int[]{
+            Color.argb(255, 5, 157, 192),
+            Color.argb(255, 0, 88, 189),
+            Color.argb(255, 0, 189, 75)
+    };
     SwipeRefreshLayout swipeRefreshLayout;
+    TextView tvUserInfo;
+    ObscureLayoutView obscureLayoutView;
+    LinearLayout lessonsVisualizerLayout;
+    TextView tvLessonVisualizerArguments;
+    TextView tvLessonVisualizerActivities;
     View root;
+    TextView tvLessonVisualizerSupport;
     LoggerManager loggerManager;
+    Activity activity;
 
     boolean forceRefresh = false;
     boolean isFragmentDestroyed = false;
     boolean offlineMode = false;
     boolean addVoteNotRelevantForMean = false;
-
-    final @ColorInt int[] QUARTERLY_COLORS = new int[]{
-            Color.argb(255, 5, 157, 192),
-            Color.argb(255, 0, 88, 189),
-            Color.argb(255, 0, 189, 75)
-    };
+    Date currentDate;
 
     @Nullable
     @Override
@@ -104,14 +107,22 @@ public class HomeFragment extends Fragment implements IGiuaAppFragment {
         tvHomeworks = root.findViewById(R.id.home_txt_homeworks);
         tvTests = root.findViewById(R.id.home_txt_tests);
         swipeRefreshLayout = root.findViewById(R.id.home_swipe_refresh_layout);
-        txUserInfo = root.findViewById(R.id.home_user_info);
+        tvUserInfo = root.findViewById(R.id.home_user_info);
+        obscureLayoutView = root.findViewById(R.id.home_obscure_view);
+        lessonsVisualizerLayout = root.findViewById(R.id.home_lessons_visualizer_layout);
+        tvLessonVisualizerArguments = root.findViewById((R.id.home_lessons_visualizer_arguments));
+        tvLessonVisualizerActivities = root.findViewById((R.id.home_lessons_visualizer_activities));
+        tvLessonVisualizerSupport = root.findViewById(R.id.home_lessons_visualizer_support);
 
+        currentDate = new Date();
         allCharts = new Vector<>(4);
         allCharts.add(new HomeChartView(activity));
         ((LinearLayout) allCharts.get(0).findViewById(R.id.view_home_main_layout)).addView(createArrowIconForChart(), 0);
+        allCharts.get(0).setVisibility(View.GONE);  //TODO: ora il grafco è solo nascosto, ma bigosna toglierlo completamente
         contentLayout.addView(allCharts.get(0));
 
         allCharts.get(0).setOnClickListener(this::mainChartOnClick);
+        obscureLayoutView.setOnClickListener(this::obscureLayoutOnClick);
         root.findViewById(R.id.home_agenda_alerts).setOnClickListener(this::agendaAlertsOnClick);
         swipeRefreshLayout.setRefreshing(true);
         swipeRefreshLayout.setOnRefreshListener(this::onRefresh);
@@ -121,10 +132,10 @@ public class HomeFragment extends Fragment implements IGiuaAppFragment {
         new Thread(() -> {
 
             if (offlineMode) {
-                activity.runOnUiThread(() -> txUserInfo.setText("Accesso eseguito in modalità Offline"));
+                activity.runOnUiThread(() -> tvUserInfo.setText("Accesso eseguito in modalità Offline"));
             } else {
                 String userType = GlobalVariables.gS.getUserTypeString();
-                activity.runOnUiThread(() -> txUserInfo.setText("Accesso eseguito nell'account " + GlobalVariables.gS.getUser() + " (" + userType + ")"));
+                activity.runOnUiThread(() -> tvUserInfo.setText("Accesso eseguito nell'account " + GlobalVariables.gS.getUser() + " (" + userType + ")"));
             }
 
             AppUpdateManager manager = new AppUpdateManager(activity);
@@ -138,6 +149,14 @@ public class HomeFragment extends Fragment implements IGiuaAppFragment {
         }).start();
 
         return root;
+    }
+
+    private void obscureLayoutOnClick(View view) {
+        if (lessonsVisualizerLayout.getVisibility() == View.VISIBLE)
+            lessonsVisualizerLayout.startAnimation(AnimationUtils.loadAnimation(requireActivity(), R.anim.visualizer_hide_effect));
+        tvLessonVisualizerSupport.setVisibility(View.GONE);
+        lessonsVisualizerLayout.setVisibility(View.GONE);
+        obscureLayoutView.hide();
     }
 
     private ImageView createArrowIconForChart() {
@@ -217,7 +236,9 @@ public class HomeFragment extends Fragment implements IGiuaAppFragment {
         GlobalVariables.gsThread.addTask(() -> {
             try {
                 VotesPage votesPage = GlobalVariables.gS.getVotesPage(forceRefresh);
+                LessonsPage lessonsPage = GlobalVariables.gS.getLessonsPage(forceRefresh);
                 Map<String, List<Vote>> allVotes = votesPage.getAllVotes();
+                List<Lesson> allLessons = lessonsPage.getAllLessonsFromDate(currentDate);
                 int homeworks = GlobalVariables.gS.getHomePage(forceRefresh).getNearHomeworks();
                 int tests = GlobalVariables.gS.getHomePage(false).getNearTests();
 
@@ -231,7 +252,7 @@ public class HomeFragment extends Fragment implements IGiuaAppFragment {
                 activity.runOnUiThread(() -> {
                     setupHomeworksTestsText(homeworks, tests);
                     if (!allVotes.isEmpty())
-                        refreshCharts(allVotes, votesPage);
+                        refreshLessons(allLessons);
                     swipeRefreshLayout.setRefreshing(false);
                 });
             } catch (GiuaScraperExceptions.YourConnectionProblems e) {
@@ -256,6 +277,44 @@ public class HomeFragment extends Fragment implements IGiuaAppFragment {
             } catch (IllegalStateException ignored) {
             }   //Si verifica quando questa schermata è stata distrutta ma il thread cerca comunque di fare qualcosa
         });
+    }
+
+    private void refreshLessons(List<Lesson> allLessons) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+
+        contentLayout.removeViews(4, contentLayout.getChildCount() - 4);
+        params.setMargins(20, 40, 20, 0);
+
+        for (Lesson lesson : allLessons) {
+            LessonView lessonView = new LessonView(requireActivity(), null, lesson);
+            lessonView.setId(View.generateViewId());
+            lessonView.setLayoutParams(params);
+            lessonView.setOnClickListener(this::lessonViewOnClick);
+
+            contentLayout.addView(lessonView);
+        }
+    }
+
+    private void lessonViewOnClick(View view) {
+        lessonsVisualizerLayout.startAnimation(AnimationUtils.loadAnimation(requireActivity(), R.anim.visualizer_show_effect));
+        lessonsVisualizerLayout.setVisibility(View.VISIBLE);
+        obscureLayoutView.show();
+
+        if (!((LessonView) view).lesson.arguments.equals(""))
+            tvLessonVisualizerArguments.setText(Html.fromHtml("<b>Argomenti:</b> " + ((LessonView) view).lesson.arguments, Html.FROM_HTML_MODE_COMPACT));
+        else
+            tvLessonVisualizerArguments.setText(Html.fromHtml("<b>Argomenti:</b> (Non specificati)", Html.FROM_HTML_MODE_COMPACT));
+
+        if (!((LessonView) view).lesson.activities.equals(""))
+            tvLessonVisualizerActivities.setText(Html.fromHtml("<b>Attività:</b> " + ((LessonView) view).lesson.activities, Html.FROM_HTML_MODE_COMPACT));
+        else
+            tvLessonVisualizerActivities.setText(Html.fromHtml("<b>Attività:</b> (Non specificata)", Html.FROM_HTML_MODE_COMPACT));
+
+        if (!((LessonView) view).lesson.support.equals("")) {
+            tvLessonVisualizerSupport.setText(Html.fromHtml("<b>Sostegno:</b> " + ((LessonView) view).lesson.support, Html.FROM_HTML_MODE_COMPACT));
+            tvLessonVisualizerSupport.setVisibility(View.VISIBLE);
+        }
+
     }
 
     private void refreshCharts(Map<String, List<Vote>> allVotes, VotesPage votesPage) {
