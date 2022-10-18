@@ -28,6 +28,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.AnimationUtils;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -58,9 +59,12 @@ import com.giua.pages.VotesPage;
 import com.giua.webscraper.GiuaScraperExceptions;
 import com.google.android.material.snackbar.Snackbar;
 
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -69,21 +73,24 @@ import java.util.Vector;
 public class HomeFragment extends Fragment implements IGiuaAppFragment {
 
     LinearLayout contentLayout;
-    List<HomeChartView> allCharts;
     TextView tvHomeworks;
     TextView tvTests;
-    final @ColorInt
-    int[] QUARTERLY_COLORS = new int[]{
-            Color.argb(255, 5, 157, 192),
-            Color.argb(255, 0, 88, 189),
-            Color.argb(255, 0, 189, 75)
-    };
     SwipeRefreshLayout swipeRefreshLayout;
     TextView tvUserInfo;
     ObscureLayoutView obscureLayoutView;
     LinearLayout lessonsVisualizerLayout;
     TextView tvLessonVisualizerArguments;
     TextView tvLessonVisualizerActivities;
+    TextView tvLessonDate;
+
+    Calendar calendar;
+    Date currentDate;
+    Date todayDate;
+    Date yesterdayDate;
+    Date tomorrowDate;
+    SimpleDateFormat formatterForScraping = new SimpleDateFormat("yyyy-MM-dd", Locale.ITALIAN);
+    SimpleDateFormat formatterForVisualize = new SimpleDateFormat("dd-MM-yyyy", Locale.ITALIAN);
+
     View root;
     TextView tvLessonVisualizerSupport;
     LoggerManager loggerManager;
@@ -92,8 +99,6 @@ public class HomeFragment extends Fragment implements IGiuaAppFragment {
     boolean forceRefresh = false;
     boolean isFragmentDestroyed = false;
     boolean offlineMode = false;
-    boolean addVoteNotRelevantForMean = false;
-    Date currentDate;
 
     @Nullable
     @Override
@@ -109,25 +114,28 @@ public class HomeFragment extends Fragment implements IGiuaAppFragment {
         swipeRefreshLayout = root.findViewById(R.id.home_swipe_refresh_layout);
         tvUserInfo = root.findViewById(R.id.home_user_info);
         obscureLayoutView = root.findViewById(R.id.home_obscure_view);
+
         lessonsVisualizerLayout = root.findViewById(R.id.home_lessons_visualizer_layout);
         tvLessonVisualizerArguments = root.findViewById((R.id.home_lessons_visualizer_arguments));
         tvLessonVisualizerActivities = root.findViewById((R.id.home_lessons_visualizer_activities));
         tvLessonVisualizerSupport = root.findViewById(R.id.home_lessons_visualizer_support);
+        tvLessonDate = root.findViewById(R.id.home_txt_lessons_date);
 
+        calendar = Calendar.getInstance();
         currentDate = new Date();
-        allCharts = new Vector<>(4);
-        allCharts.add(new HomeChartView(activity));
-        ((LinearLayout) allCharts.get(0).findViewById(R.id.view_home_main_layout)).addView(createArrowIconForChart(), 0);
-        allCharts.get(0).setVisibility(View.GONE);  //TODO: ora il grafco è solo nascosto, ma bigosna toglierlo completamente
-        contentLayout.addView(allCharts.get(0));
+        todayDate = currentDate;
+        yesterdayDate = getPrevDate(currentDate);
+        tomorrowDate = getNextDate(currentDate);
 
-        allCharts.get(0).setOnClickListener(this::mainChartOnClick);
         obscureLayoutView.setOnClickListener(this::obscureLayoutOnClick);
         root.findViewById(R.id.home_agenda_alerts).setOnClickListener(this::agendaAlertsOnClick);
         swipeRefreshLayout.setRefreshing(true);
         swipeRefreshLayout.setOnRefreshListener(this::onRefresh);
         offlineMode = activity.getIntent().getBooleanExtra("offline", false);
-        addVoteNotRelevantForMean = SettingsData.getSettingBoolean(activity, SettingKey.VOTE_NRFM_ON_CHART);
+
+        tvLessonDate.setText("Oggi");
+        root.findViewById(R.id.home_btn_lessons_next_date).setOnClickListener(this::nextDateOnClick);
+        root.findViewById(R.id.home_btn_lessons_prev_date).setOnClickListener(this::prevDateOnClick);
 
         new Thread(() -> {
 
@@ -159,43 +167,9 @@ public class HomeFragment extends Fragment implements IGiuaAppFragment {
         obscureLayoutView.hide();
     }
 
-    private ImageView createArrowIconForChart() {
-        ImageView imageView = new ImageView(activity);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-
-        imageView.setImageResource(R.drawable.ic_baseline_keyboard_arrow_down_24);
-        params.gravity = Gravity.RIGHT;
-        params.weight = 1.0f;
-        imageView.setLayoutParams(params);
-
-        return imageView;
-    }
-
-    private void mainChartOnClick(View view) {
-        boolean isFirst = true;
-        for(HomeChartView homeChartView : allCharts) {
-            if (isFirst) {
-                LinearLayout mainLayout = homeChartView.findViewById(R.id.view_home_main_layout);
-                ImageView ivArrow = (ImageView) mainLayout.getChildAt(0);
-                float rotation = ivArrow.getRotationX();
-
-                if(rotation == 180) ivArrow.setRotationX(0);
-                else ivArrow.setRotationX(180);
-
-                isFirst = false;
-                continue;
-            }
-
-            if(homeChartView.getVisibility() == View.INVISIBLE)
-                homeChartView.setVisibility(View.VISIBLE);
-            else
-                homeChartView.setVisibility(View.INVISIBLE);
-        }
-    }
-
     @Override
     public void loadOfflineDataAndViews() {
-        new Thread(() -> {
+        /*new Thread(() -> {
             try {
                 Map<String, List<Vote>> allVotes = new OfflineDBController(activity).readVotes();
                 int homeworks = 0;
@@ -228,7 +202,13 @@ public class HomeFragment extends Fragment implements IGiuaAppFragment {
             } catch (IllegalStateException ignored) {
                 //Si verifica quando questa schermata è stata distrutta ma il thread cerca comunque di fare qualcosa
             }
-        }).start();
+        }).start();*/
+        /*tvNoElements.setText("Non disponibile offline");
+        tvNoElements.setVisibility(View.VISIBLE);
+        otherInfoLayoutButton.setVisibility(View.INVISIBLE);
+        root.findViewById(R.id.absences_other_info_number_absences).setVisibility(View.INVISIBLE);
+        root.findViewById(R.id.absences_other_info_total_absences_time).setVisibility(View.INVISIBLE);
+        swipeRefreshLayout.setRefreshing(false);*/
     }
 
     @Override
@@ -251,8 +231,8 @@ public class HomeFragment extends Fragment implements IGiuaAppFragment {
 
                 activity.runOnUiThread(() -> {
                     setupHomeworksTestsText(homeworks, tests);
-                    if (!allVotes.isEmpty())
-                        refreshLessons(allLessons);
+                    //if (!allVotes.isEmpty()) //TODO: ????????
+                    refreshLessons(allLessons);
                     swipeRefreshLayout.setRefreshing(false);
                 });
             } catch (GiuaScraperExceptions.YourConnectionProblems e) {
@@ -317,57 +297,60 @@ public class HomeFragment extends Fragment implements IGiuaAppFragment {
 
     }
 
-    private void refreshCharts(Map<String, List<Vote>> allVotes, VotesPage votesPage) {
-        allCharts.get(0).refreshData(
-                activity,
-                "Andamento generale",
-                getMeanOfAllVotes(allVotes),
-                generateEntries(allVotes),
-                votesPage.getAllQuarterlyNames(),
-                Arrays.asList(
-                        QUARTERLY_COLORS[0],
-                        QUARTERLY_COLORS[1],
-                        QUARTERLY_COLORS[2]
-                ));
-
-        List<String> allQuarterlyNames = votesPage.getAllQuarterlyNames();
-        List<Vote> allVotesSorted = sortVotes(allVotes);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        int nQuarterly = allQuarterlyNames.size();
-        float mean = 0;
-
-        params.topMargin = AppUtils.convertDpToPx(20, activity);
-
-        for(int i = 1; i < allCharts.size(); i++)
-            contentLayout.removeView(allCharts.get(i));
-
-        allCharts = allCharts.subList(0, 1);
-
-        for(int quarterly = 0; quarterly < nQuarterly; quarterly++){
-            HomeChartView homeChartView = new HomeChartView(activity);
-            List<Entry> entries = new Vector<>();
-
-            int j = 0;
-            for(Vote vote : allVotesSorted){
-                if(vote.quarterly != quarterly+1) continue;
-
-                float voteValue = vote.toFloat();
-
-                mean += voteValue;
-                entries.add(new Entry(j, voteValue));
-                j++;
-            }
-
-            mean = mean / j;
-
-            homeChartView.refreshData(activity, allQuarterlyNames.get(quarterly), mean,entries, allQuarterlyNames.get(quarterly), QUARTERLY_COLORS[quarterly]);
-            homeChartView.setVisibility(View.INVISIBLE);
-            homeChartView.setLayoutParams(params);
-
-            allCharts.add(homeChartView);
-            contentLayout.addView(homeChartView);
-        }
+    private void prevDateOnClick(View view) {
+        //data precedente
+        currentDate = getPrevDate(currentDate);
+        //calendarView.setDate(currentDate.getTime());
+        //lessonsVisualizerLayout.removeAllViews();
+        setTextWithNames();
+        if (!offlineMode)
+            loadDataAndViews();
+        else
+            loadOfflineDataAndViews();
     }
+
+    private void nextDateOnClick(View view) {
+        //prossimo giorno
+        currentDate = getNextDate(currentDate);
+        //calendarView.setDate(currentDate.getTime());
+        //lessonsVisualizerLayout.removeAllViews();
+        setTextWithNames();
+        if (!offlineMode)
+            loadDataAndViews();
+        else
+            loadOfflineDataAndViews();
+    }
+
+
+    private void setTextWithNames() {
+        String s = formatterForVisualize.format(currentDate);
+        if (s.equals(formatterForVisualize.format(todayDate)))
+            tvLessonDate.setText("Oggi");
+        else if (s.equals(formatterForVisualize.format(yesterdayDate)))
+            tvLessonDate.setText("Ieri");
+        else if (s.equals(formatterForVisualize.format(tomorrowDate)))
+            tvLessonDate.setText("Domani");
+        else
+            tvLessonDate.setText(formatterForVisualize.format(currentDate));
+    }
+
+    private Date getCurrentDate(Date date) {
+        calendar.setTime(date);
+        return calendar.getTime();
+    }
+
+    private Date getNextDate(Date date) {
+        calendar.setTime(date);
+        calendar.add(Calendar.DAY_OF_YEAR, 1);
+        return calendar.getTime();
+    }
+
+    private Date getPrevDate(Date date) {
+        calendar.setTime(date);
+        calendar.add(Calendar.DAY_OF_YEAR, -1);
+        return calendar.getTime();
+    }
+
 
     @Override
     public void addViews() {
@@ -440,98 +423,6 @@ public class HomeFragment extends Fragment implements IGiuaAppFragment {
         tvTests.setMinWidth(0);
     }
 
-    private List<List<Entry>> generateEntries(Map<String, List<Vote>> allVotes) {
-
-        List<Entry> entriesFirstQuarter = new Vector<>();
-        List<Entry> entriesSecondQuarter = new Vector<>();
-        List<Entry> entriesThirdQuarter = new Vector<>();
-
-        int voteCounter = 0;
-
-        List<Vote> allVotesSorted = sortVotes(allVotes);
-        for (Vote vote : allVotesSorted) {
-            if (vote.isAsterisk || !(vote.isRelevantForMean || addVoteNotRelevantForMean)) break;
-
-            switch (vote.quarterly) {
-                case 1:
-                    entriesFirstQuarter.add(new Entry(voteCounter, vote.toFloat()));
-                    break;
-                case 2:
-                    entriesSecondQuarter.add(new Entry(voteCounter, vote.toFloat()));
-                    break;
-                case 3:
-                    entriesThirdQuarter.add(new Entry(voteCounter, vote.toFloat()));
-                    break;
-            }
-
-            voteCounter++;
-        }
-
-        if (voteCounter == 1)    //Se si ha solamente un voto allora duplicalo nel grafico per far visualizzare almeno una riga
-            entriesFirstQuarter.add(new Entry(voteCounter, allVotesSorted.get(0).toFloat()));
-
-        List<List<Entry>> entries = new Vector<>(3);
-        entries.add(entriesFirstQuarter);
-        entries.add(entriesSecondQuarter);
-        entries.add(entriesThirdQuarter);
-
-        return entries;
-    }
-
-
-    /**
-     * Riordina in una lista tutti i voti di tutte le materie secondo le date
-     *
-     * @param allVotes I voti
-     * @return La lista dei voti ordinata per data
-     */
-    private List<Vote> sortVotes(Map<String, List<Vote>> allVotes) {
-        boolean showVoteNotRelevantForMean = SettingsData.getSettingBoolean(activity, SettingKey.VOTE_NRFM_ON_CHART);
-        List<Vote> listToSort = new Vector<>();
-        Set<String> allSubjects = allVotes.keySet();
-        for (String subject : allSubjects) {
-            List<Vote> subjectVotes = allVotes.get(subject);
-            for (Vote vote : subjectVotes) {
-                if (!vote.isAsterisk && (vote.isRelevantForMean || showVoteNotRelevantForMean)) {
-                    listToSort.add(vote);
-                }
-            }
-        }
-
-        listToSort.sort((firstVote, secondVote) -> {
-            int firstDay = Integer.parseInt(firstVote.date.split(" ")[0]);
-            int firstMonth = getNumberFromMonth(firstVote.date.split(" ")[1]);
-            int firstYear = 0;   //Non interessa l'anno vero serve solo per il sorting
-
-            if (firstMonth < 9)
-                firstYear = 1;  //1 se è il secondo anno dell'anno scolastico
-
-            int secondDay = Integer.parseInt(secondVote.date.split(" ")[0]);
-            int secondMonth = getNumberFromMonth(secondVote.date.split(" ")[1]);
-            int secondYear = 0;
-
-            if (secondMonth < 9)
-                secondYear = 1;
-
-            if (firstYear == secondYear) {
-                if (firstMonth == secondMonth) {
-                    if (firstDay == secondDay)
-                        return 0;   //I giorni sono uguali
-                    if (firstDay > secondDay)
-                        return 1;   //Il primo giorno è maggiore rispetto al primo
-                    return -1; //Il primo giorno è minore rispetto al primo
-                }
-                if (firstMonth > secondMonth)
-                    return 1;
-                return -1;
-            }
-            if (firstYear > secondYear)
-                return 1;
-            return -1;
-        });
-
-        return listToSort;
-    }
 
     private int getNumberFromMonth(String month) {
         switch (month) {
@@ -564,35 +455,7 @@ public class HomeFragment extends Fragment implements IGiuaAppFragment {
         return -1;
     }
 
-    private float getMeanOfAllVotes(Map<String, List<Vote>> votes) {
-        List<Float> allMeans = new Vector<>();
-        for (String subject : votes.keySet()) {
-            float mean = 0f;
-            float voteCounter = 0;     //Conta solamente i voti che ci sono e non gli asterischi
 
-            for (Vote vote : Objects.requireNonNull(votes.get(subject))) {      //Cicla ogni voto della materia
-                if (vote.value.length() > 0 && !vote.isAsterisk && vote.isRelevantForMean) {
-                    mean += vote.toFloat();
-                    voteCounter++;
-                }
-            }
-
-            if (voteCounter > 0) {
-                mean /= voteCounter;
-                allMeans.add(mean);
-            }
-        }
-
-        float meanOfMeans = 0f; //La media delle singole medie delle materie
-        for (Float f : allMeans) {
-            meanOfMeans += f;
-        }
-
-        if (meanOfMeans == 0f)
-            return 0f;
-
-        return meanOfMeans / allMeans.size();
-    }
 
     private void setErrorMessage(String message, View root) {
         if (!isFragmentDestroyed)

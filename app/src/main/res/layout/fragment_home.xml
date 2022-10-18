@@ -140,7 +140,7 @@
                         android:layout_weight="1"
                         android:orientation="vertical"
                         android:padding="8dp"
-                        android:text="Oggi"
+                        android:text="Data"
                         android:textAlignment="center"
                         android:textSize="18sp" />
 

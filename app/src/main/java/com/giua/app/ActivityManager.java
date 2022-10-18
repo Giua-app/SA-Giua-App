@@ -272,6 +272,9 @@ public class ActivityManager extends AppCompatActivity {
         SettingsData.saveSettingBoolean(this, SettingKey.VOTES_NOTIFICATION, true);
         SettingsData.saveSettingBoolean(this, SettingKey.HOMEWORKS_NOTIFICATION, true);
         SettingsData.saveSettingBoolean(this, SettingKey.TESTS_NOTIFICATION, true);
+
+        //MODIFICA PER S.A.
+        SettingsData.saveSettingString(this, SettingKey.DEFAULT_URL, "https://registro.ivylogic.it");
     }
 
     private void startAccountsActivity() {
