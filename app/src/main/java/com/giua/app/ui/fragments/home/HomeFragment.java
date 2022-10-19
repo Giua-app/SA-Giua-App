@@ -20,35 +20,26 @@
 package com.giua.app.ui.fragments.home;
 
 import android.app.Activity;
-import android.graphics.Color;
 import android.os.Bundle;
 import android.text.Html;
-import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.AnimationUtils;
-import android.widget.Button;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
-import com.github.mikephil.charting.data.Entry;
 import com.giua.app.AppUpdateManager;
-import com.giua.app.AppUtils;
 import com.giua.app.GlobalVariables;
 import com.giua.app.IGiuaAppFragment;
 import com.giua.app.LoggerManager;
 import com.giua.app.OfflineDBController;
 import com.giua.app.R;
-import com.giua.app.SettingKey;
-import com.giua.app.SettingsData;
 import com.giua.app.ui.activities.DrawerActivity;
 import com.giua.app.ui.fragments.lessons.LessonView;
 import com.giua.app.ui.views.ObscureLayoutView;
@@ -60,15 +51,11 @@ import com.giua.webscraper.GiuaScraperExceptions;
 import com.google.android.material.snackbar.Snackbar;
 
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.Vector;
 
 public class HomeFragment extends Fragment implements IGiuaAppFragment {
 
@@ -129,7 +116,6 @@ public class HomeFragment extends Fragment implements IGiuaAppFragment {
 
         obscureLayoutView.setOnClickListener(this::obscureLayoutOnClick);
         root.findViewById(R.id.home_agenda_alerts).setOnClickListener(this::agendaAlertsOnClick);
-        swipeRefreshLayout.setRefreshing(true);
         swipeRefreshLayout.setOnRefreshListener(this::onRefresh);
         offlineMode = activity.getIntent().getBooleanExtra("offline", false);
 
@@ -213,6 +199,7 @@ public class HomeFragment extends Fragment implements IGiuaAppFragment {
 
     @Override
     public void loadDataAndViews() {
+        swipeRefreshLayout.setRefreshing(true);
         GlobalVariables.gsThread.addTask(() -> {
             try {
                 VotesPage votesPage = GlobalVariables.gS.getVotesPage(forceRefresh);
@@ -231,7 +218,6 @@ public class HomeFragment extends Fragment implements IGiuaAppFragment {
 
                 activity.runOnUiThread(() -> {
                     setupHomeworksTestsText(homeworks, tests);
-                    //if (!allVotes.isEmpty()) //TODO: ????????
                     refreshLessons(allLessons);
                     swipeRefreshLayout.setRefreshing(false);
                 });
@@ -264,6 +250,15 @@ public class HomeFragment extends Fragment implements IGiuaAppFragment {
 
         contentLayout.removeViews(4, contentLayout.getChildCount() - 4);
         params.setMargins(20, 40, 20, 0);
+
+        if (allLessons.size() == 1 && allLessons.get(0).isError) {
+            TextView tv = new TextView(activity);
+            tv.setText(allLessons.get(0).arguments);
+            tv.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
+            tv.setLayoutParams(params);
+            contentLayout.addView(tv);
+            return;
+        }
 
         for (Lesson lesson : allLessons) {
             LessonView lessonView = new LessonView(requireActivity(), null, lesson);
