@@ -12,7 +12,7 @@
 </p>
 
 ### Attenzione
-**L'app dalla versione 0.7.0 riceverà solo aggiornamenti di manutenzione, questo significa che non verranno implementate nuove funzionalità ma solo risolti i bug che rendono impossibile il suo utilizzo.**
+**Questa versione dell'app è stata modificata a seconda delle esigenze dell'Istituto Sant'Antida**
 
 ## Che cos'è?
 Giua-App è una applicazione per Android che permette di visualizzare voti, assenze, lezioni e tutte le altre informazioni ottenibili da un sito con il registro elettronico [giua@school](https://github.com/trinko/giuaschool#giuaschool).
