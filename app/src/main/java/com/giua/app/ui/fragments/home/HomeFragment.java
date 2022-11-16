@@ -64,6 +64,8 @@ public class HomeFragment extends Fragment implements IGiuaAppFragment {
     TextView tvTests;
     SwipeRefreshLayout swipeRefreshLayout;
     TextView tvUserInfo;
+    TextView tvNewsletters;
+    TextView tvAlerts;
     ObscureLayoutView obscureLayoutView;
     LinearLayout lessonsVisualizerLayout;
     TextView tvLessonVisualizerArguments;
@@ -100,6 +102,8 @@ public class HomeFragment extends Fragment implements IGiuaAppFragment {
         tvTests = root.findViewById(R.id.home_txt_tests);
         swipeRefreshLayout = root.findViewById(R.id.home_swipe_refresh_layout);
         tvUserInfo = root.findViewById(R.id.home_user_info);
+        tvNewsletters = root.findViewById(R.id.home_newsletters);
+        tvAlerts = root.findViewById(R.id.home_alerts);
         obscureLayoutView = root.findViewById(R.id.home_obscure_view);
 
         lessonsVisualizerLayout = root.findViewById(R.id.home_lessons_visualizer_layout);
@@ -208,6 +212,8 @@ public class HomeFragment extends Fragment implements IGiuaAppFragment {
                 List<Lesson> allLessons = lessonsPage.getAllLessonsFromDate(currentDate);
                 int homeworks = GlobalVariables.gS.getHomePage(forceRefresh).getNearHomeworks();
                 int tests = GlobalVariables.gS.getHomePage(false).getNearTests();
+                int newslettersToRead = GlobalVariables.gS.getHomePage(false).getNumberNewsletters();
+                int alertsToRead = GlobalVariables.gS.getHomePage(false).getNumberAlerts();
 
                 new OfflineDBController(activity).addVotes(allVotes);
 
@@ -217,6 +223,23 @@ public class HomeFragment extends Fragment implements IGiuaAppFragment {
                 if (isFragmentDestroyed) return;
 
                 activity.runOnUiThread(() -> {
+
+                    if (newslettersToRead > 0) {
+                        tvNewsletters.setText("Ci sono " + newslettersToRead + " circolari da leggere");
+                        tvNewsletters.setBackgroundTintList(activity.getResources().getColorStateList(R.color.middle_vote, activity.getTheme()));
+                    } else {
+                        tvNewsletters.setText("Non ci sono circolari da leggere");
+                        tvNewsletters.setBackgroundTintList(activity.getResources().getColorStateList(R.color.general_view_color, activity.getTheme()));
+                    }
+
+                    if (alertsToRead > 0) {
+                        tvAlerts.setText("Ci sono " + alertsToRead + " avvisi da leggere");
+                        tvAlerts.setBackgroundTintList(activity.getResources().getColorStateList(R.color.middle_vote, activity.getTheme()));
+                    } else {
+                        tvAlerts.setText("Non ci sono avvisi da leggere");
+                        tvAlerts.setBackgroundTintList(activity.getResources().getColorStateList(R.color.general_view_color, activity.getTheme()));
+                    }
+
                     setupHomeworksTestsText(homeworks, tests);
                     refreshLessons(allLessons);
                     swipeRefreshLayout.setRefreshing(false);
@@ -248,7 +271,7 @@ public class HomeFragment extends Fragment implements IGiuaAppFragment {
     private void refreshLessons(List<Lesson> allLessons) {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
 
-        contentLayout.removeViews(4, contentLayout.getChildCount() - 4);
+        contentLayout.removeViews(6, contentLayout.getChildCount() - 6);
         params.setMargins(20, 40, 20, 0);
 
         if (allLessons.size() == 1 && allLessons.get(0).isError) {
